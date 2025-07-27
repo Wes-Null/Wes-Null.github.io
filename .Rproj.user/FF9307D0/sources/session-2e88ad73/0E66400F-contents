@@ -1,5 +1,6 @@
 project:
   type: website
+  output-dir: docs
 
 website:
   title: "Aaron's Data Science Portfolio"
@@ -10,10 +11,8 @@ website:
       # This creates the "Projects" drop-down menu
       - text: "Projects"
         menu:
-          - href: projects/spotify-clustering/analysis.qmd
+          - href: Projects/Spotify_Cluster_Project/Spotify_Data_Report.qmd
             text: "Spotify Global Music Analysis"
-          - href: projects/spotify-clustering/visualizations.qmd
-            text: "Interactive Visualizations"
       - href: about.qmd
         text: About
 

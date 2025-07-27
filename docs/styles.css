@@ -1,0 +1,21 @@
+/* css styles */
+/* ----- Center All Figure Captions ----- */
+
+figcaption {
+  text-align: center;
+}
+
+
+/* ----- Add Vertical Space Around Plots and Images ----- */
+/* This targets the container for R code outputs (plots, tables, etc.) */
+
+.cell {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+/* This also targets static images included with markdown */
+figure {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}

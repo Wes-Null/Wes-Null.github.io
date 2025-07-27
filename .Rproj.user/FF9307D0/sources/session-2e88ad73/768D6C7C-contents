@@ -36,7 +36,7 @@ Though today the world is more globalized than ever before, different regions of
 
 ## Data
 
-In this project, the top 200 songs by Spotify streams of 73 countries around the world are gathered from the week of May 29, 2025 for analysis (URL: <https://charts.spotify.com/home>). Two different clustering approaches are used to group each song into distinct clusters based off of their frequency across the charts of all different countries. For modeling purposes, the data was transformed into a wide matrix where each row represented a song and each column represented that song's presence in a country's chart, one-hot encoded with 1s an 0s.
+In this project, the top 200 songs by Spotify streams of 73 countries around the world are gathered from the week of May 29, 2025 for analysis (URL: <https://charts.spotify.com/home>). Hierarchical clustering is used to group each song into distinct clusters based off of their frequency across the charts of all different countries. For modeling purposes, the data was transformed into a wide matrix where each row represented a song and each column represented that song's presence in a country's chart, one-hot encoded with 1s an 0s.
 
 ## Measuring Chart Uniqueness
 

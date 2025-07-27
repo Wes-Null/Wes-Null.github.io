@@ -1,19 +1,5 @@
 [
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Wes Null’s Data Blog",
-    "section": "",
-    "text": "This is the page where you can find some personal data science oriented projects of mine. Some of these are focused on analyzing specific datasets, while others are more akin to learning exercises with an educational focus. Enjoy!"
-  },
-  {
-    "objectID": "index.html#welcome",
-    "href": "index.html#welcome",
-    "title": "Wes Null’s Data Blog",
-    "section": "",
-    "text": "This is the page where you can find some personal data science oriented projects of mine. Some of these are focused on analyzing specific datasets, while others are more akin to learning exercises with an educational focus. Enjoy!"
-  },
-  {
     "objectID": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html",
     "href": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html",
     "title": "Exploring Musical Ecosystems in Spotify Chart Data",
@@ -42,11 +28,11 @@
     "text": "Data\nIn this project, the top 200 songs by Spotify streams of 73 countries around the world are gathered from the week of May 29, 2025 for analysis (URL: https://charts.spotify.com/home). Two different clustering approaches are used to group each song into distinct clusters based off of their frequency across the charts of all different countries. For modeling purposes, the data was transformed into a wide matrix where each row represented a song and each column represented that song’s presence in a country’s chart, one-hot encoded with 1s an 0s."
   },
   {
-    "objectID": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#question-1-measuring-chart-uniqueness",
-    "href": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#question-1-measuring-chart-uniqueness",
+    "objectID": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#measuring-chart-uniqueness",
+    "href": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#measuring-chart-uniqueness",
     "title": "Exploring Musical Ecosystems in Spotify Chart Data",
-    "section": "Question 1: Measuring Chart Uniqueness",
-    "text": "Question 1: Measuring Chart Uniqueness\nOne potential method of measuring the uniqueness of a country’s chart involves looking at the number of other countries the songs on its chart are shared with. If we simply count the number of times that each of the songs appear in the charts of other countries and add the totals for each song together, we can use this number as a broad measurement of “globalization” of a chart.\nWe can use both raw frequency and the average number of shares per songs, which we can call “globality”, as seen in the table below.\n\n\n\n\n\n\nWe can then see which countries have the lowest and highest globality scores:\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nLimitations\nWhile the globality metric can be a good start for understanding the data, it suffers from significant limitations. Taking the mean of shares per song by itself tells us nothing about the shape of the distribution of the share count of a given country. Therefore, taking a blanket mean via the globality metric for shares per song leads to critical information loss. We have little insight into why these scores are what they are. A country’s chart could have a large bundle of songs that are shared with a very large amount of other countries, yet have another bundle that are completely exclusive to the country at hand.\nFor example, looking at Austria, a country with a high globality score of 12.095, we see:\n\n\n\n\n\n\n\n\n\nA strong plurality of songs in Austria’s chart are shared with only one other country. What might that other country be? Let’s look further:\n\n\n\n\n\n\n\n\n\nGermany holds a significant lead in number of shared songs with Austria. For context, here is the distribution of the number of shared songs with Austria (bin width of 5):\n\n\n\n\n\n\n\n\n\nGiven that a large proportion of countries in the data share less than 75 songs with Austria, Germany’s total of 139 is remarkable.\nNow let’s see if Germany is the country that shares the most songs exclusively with Austria:\n\n\n\n\n\n\nAs seen above, there are 35 songs in the data that are shared only by Germany and Austria. Here they are:\n\n\n\n\n\n\nKnowing that the two countries share a common language and border, as well as many historical ties, this result makes intuitive sense (notice how the majority of the titles above are in German). Yet how many less obvious trends can we uncover in the data? Digging through the data “by hand” in search of these patterns may prove to be a lengthy process. Luckily, unsupervised machine learning methods can help us outline some of the patterns buried within large data sets automatically."
+    "section": "Measuring Chart Uniqueness",
+    "text": "Measuring Chart Uniqueness\nOne potential method of measuring the uniqueness of a country’s chart involves looking at the number of other countries the songs on its chart are shared with. If we simply count the number of times that each of the songs appear in the charts of other countries and add the totals for each song together, we can use this number as a broad measurement of “globalization” of a chart.\nWe can use both raw frequency and the average number of shares per songs, which we can call “globality”, as seen in the table below.\n\n\n\n\n\n\nWe can then see which countries have the lowest and highest globality scores:\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nLimitations\nWhile the globality metric can be a good start for understanding the data, it suffers from significant limitations. Taking the mean of shares per song by itself tells us nothing about the shape of the distribution of the share count of a given country. Therefore, taking a blanket mean via the globality metric for shares per song leads to critical information loss. We have little insight into why these scores are what they are. A country’s chart could have a large bundle of songs that are shared with a very large amount of other countries, yet have another bundle that are completely exclusive to the country at hand.\nFor example, looking at Austria, a country with a high globality score of 12.095, we see:\n\n\n\n\n\n\n\n\n\nA strong plurality of songs in Austria’s chart are shared with only one other country. What might that other country be? Let’s look further:\n\n\n\n\n\n\n\n\n\nGermany holds a significant lead in number of shared songs with Austria. For context, here is the distribution of the number of shared songs with Austria (bin width of 5):\n\n\n\n\n\n\n\n\n\nGiven that a large proportion of countries in the data share less than 75 songs with Austria, Germany’s total of 139 is remarkable.\nNow let’s see if Germany is the country that shares the most songs exclusively with Austria:\n\n\n\n\n\n\nAs seen above, there are 35 songs in the data that are shared only by Germany and Austria. Here they are:\n\n\n\n\n\n\nKnowing that the two countries share a common language and border, as well as many historical ties, this result makes intuitive sense (notice how the majority of the titles above are in German). Yet how many less obvious trends can we uncover in the data? Digging through the data “by hand” in search of these patterns may prove to be a lengthy process. Luckily, unsupervised machine learning methods can help us outline some of the patterns buried within large data sets automatically."
   },
   {
     "objectID": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#why-hierarchical-clustering",
@@ -84,10 +70,24 @@
     "text": "Conclusion\nThe hierarchical clustering approach proved largely successful in outlining specific “ecosystems” within the top 200 Spotify charts of the 73 countries analyzed. The number of clusters one chooses provides specific insights; choosing a high k can outline small clusters highly specific to the region while choosing a lower k can provide a more zoomed-out view of where the songs fit in a larger global context. The choice of k = 32 with Ward’s linkage method created more consistent, evenly-sized clustered that captured both broad regional clusters and more isolated, regionally-specific clusters.\n\nNext Steps\n\nQualitative Analysis: Can a similar analysis be performed if we were given access to song feature data? Spotify once offered this data to the public but has since revoked access for privacy reasons. Might more interesting trends be discovered if we could cross-reference these findings with that data?\nScaling up: This dataset only contained 7399 songs from each countries top 200 data sets, without regard to the songs particular positions on the charts. Further analysis might include simply increasing the number of songs per country or an attempt to weigh chart ranking/number of streams in measuring similarity.\nMeasuring Across Time: How have these patterns shifted over time? Can we notice a change in the “shape” of these clusters if one were to track these weekly charts over the span of years?\n\nThere remains a lot more to learn from analyzing the Spotify chart data than just using the methods described here. It’s likely something that I will revisit in the future.\n\n\n\nHappy Listening!"
   },
   {
-    "objectID": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#measuring-chart-uniqueness",
-    "href": "Projects/Spotify_Cluster_Project/Spotify_Data_Report.html#measuring-chart-uniqueness",
-    "title": "Exploring Musical Ecosystems in Spotify Chart Data",
-    "section": "Measuring Chart Uniqueness",
-    "text": "Measuring Chart Uniqueness\nOne potential method of measuring the uniqueness of a country’s chart involves looking at the number of other countries the songs on its chart are shared with. If we simply count the number of times that each of the songs appear in the charts of other countries and add the totals for each song together, we can use this number as a broad measurement of “globalization” of a chart.\nWe can use both raw frequency and the average number of shares per songs, which we can call “globality”, as seen in the table below.\n\n\n\n\n\n\nWe can then see which countries have the lowest and highest globality scores:\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nLimitations\nWhile the globality metric can be a good start for understanding the data, it suffers from significant limitations. Taking the mean of shares per song by itself tells us nothing about the shape of the distribution of the share count of a given country. Therefore, taking a blanket mean via the globality metric for shares per song leads to critical information loss. We have little insight into why these scores are what they are. A country’s chart could have a large bundle of songs that are shared with a very large amount of other countries, yet have another bundle that are completely exclusive to the country at hand.\nFor example, looking at Austria, a country with a high globality score of 12.095, we see:\n\n\n\n\n\n\n\n\n\nA strong plurality of songs in Austria’s chart are shared with only one other country. What might that other country be? Let’s look further:\n\n\n\n\n\n\n\n\n\nGermany holds a significant lead in number of shared songs with Austria. For context, here is the distribution of the number of shared songs with Austria (bin width of 5):\n\n\n\n\n\n\n\n\n\nGiven that a large proportion of countries in the data share less than 75 songs with Austria, Germany’s total of 139 is remarkable.\nNow let’s see if Germany is the country that shares the most songs exclusively with Austria:\n\n\n\n\n\n\nAs seen above, there are 35 songs in the data that are shared only by Germany and Austria. Here they are:\n\n\n\n\n\n\nKnowing that the two countries share a common language and border, as well as many historical ties, this result makes intuitive sense (notice how the majority of the titles above are in German). Yet how many less obvious trends can we uncover in the data? Digging through the data “by hand” in search of these patterns may prove to be a lengthy process. Luckily, unsupervised machine learning methods can help us outline some of the patterns buried within large data sets automatically."
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this site\n\n1 + 1\n\n[1] 2"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Wes Null’s Data Blog",
+    "section": "",
+    "text": "This is the page where you can find some personal data science oriented projects of mine. Some of these are focused on analyzing specific datasets, while others are more akin to learning exercises with an educational focus. Enjoy!"
+  },
+  {
+    "objectID": "index.html#welcome",
+    "href": "index.html#welcome",
+    "title": "Wes Null’s Data Blog",
+    "section": "",
+    "text": "This is the page where you can find some personal data science oriented projects of mine. Some of these are focused on analyzing specific datasets, while others are more akin to learning exercises with an educational focus. Enjoy!"
   }
 ]
