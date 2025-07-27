@@ -1,0 +1,585 @@
+---
+title: "Exploring Musical Ecosystems in Spotify Chart Data"
+author: "Aaron Null"
+format: html
+editor: visual
+execute:
+  echo: false   
+  warning: false 
+  message: false 
+---
+
+```{r}
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(RColorBrewer)
+library(DT)
+library(readr)
+library(bslib)
+library(crosstalk)
+library(pheatmap)
+library(plotly)
+```
+
+## Introduction
+
+Though today the world is more globalized than ever before, different regions of the world still have distinct pop music ecosystems, from K-Pop in South Korea to the wide variety of techno across the European continent. It is intuitive to assume that each country has a distinct musical palette, but how exactly do the listening habits of these countries relate to one another on the macro-scale? Is it possible to outline unexpected regional trends in pop music taste by comparing the top 200 songs across countries?
+
+![](images/ypc-a-world-of-music-169%20(1).jpg)
+
+## Two Primary Questions
+
+-   How unique is a country's top 200 chart based on how widely shared it's songs are?
+
+-   What are some of the most distinct trends in the data overall, across all countries?
+
+## Data
+
+In this project, the top 200 songs by Spotify streams of 73 countries around the world are gathered from the week of May 29, 2025 for analysis (URL: <https://charts.spotify.com/home>). Two different clustering approaches are used to group each song into distinct clusters based off of their frequency across the charts of all different countries. For modeling purposes, the data was transformed into a wide matrix where each row represented a song and each column represented that song's presence in a country's chart, one-hot encoded with 1s an 0s.
+
+## Measuring Chart Uniqueness
+
+One potential method of measuring the uniqueness of a country's chart involves looking at the number of other countries the songs on its chart are shared with. If we simply count the number of times that each of the songs appear in the charts of other countries and add the totals for each song together, we can use this number as a broad measurement of "globalization" of a chart.
+
+We can use both raw frequency and the average number of shares per songs, which we can call "globality", as seen in the table below.
+
+```{r}
+# Replace with location of 'Spotify_Top_Songs_Global_5-29-25' on your local machine ###
+
+file_path <- "data/Spotify_Top_Songs_Global_May_29_2025 (2).csv"
+
+Spotify_df <- read_csv(file_path)
+
+## For each song, count the number of countries it appears in
+## We'll use the unique combination of track_name and artists_name
+
+n_countries <- Spotify_df |>
+  group_by(track_name, artist_names) |>
+  summarize(n_countries = n_distinct(country), .groups = 'drop') |>
+  mutate(n_countries = n_countries - 1)
+
+## Join summarized output with original dataframe
+
+Spotify_df2 <- Spotify_df |>
+  left_join(n_countries, by = c("track_name", "artist_names"))
+
+## Add the individual song totals together for each country for N Shares
+## Average the shares per song for Globality
+
+country_uniqueness <- Spotify_df2 |>
+  group_by(country) |>
+  summarize(Globality = mean(n_countries, na.rm = TRUE),
+            `N Shares` = sum(n_countries, na.rm = TRUE)) |>
+  arrange(country) |>
+  rename(Country = country)
+
+glob_table <- datatable(
+  country_uniqueness,
+  rownames = FALSE,
+  class = 'compact stripe',
+  filter = 'top', 
+  options = list(
+    scrollY = '500px',
+    pageLength = 73,
+    dom = 'ftip'      
+  )
+)
+
+glob_table
+```
+
+\n
+
+\n
+
+We can then see which countries have the lowest and highest globality scores:
+
+\n
+
+\n
+
+```{r}
+### Bottom 5 ###
+
+plot <- country_uniqueness |>
+  arrange(Globality) |>
+  slice_head(n = 5) |>
+  ggplot(aes(x = reorder(Country, Globality), y = Globality, fill = Country)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(x = "Country",
+       y = "Mean Song Globality",
+       fill = "Country",
+       title = "Bottom 5 Countries with Lowest Mean Song Globality",
+       subtitle = "Globality: Metric that reflects how widely a
+       song is shared across countries' charts") +
+  scale_y_continuous(n.breaks = 8)
+
+plot
+
+```
+
+```{r}
+### Top 5 ###
+
+plot <- country_uniqueness |>
+  arrange(desc(Globality)) |>
+  slice_head(n = 5) |>
+  ggplot(aes(x = reorder(Country, -Globality), y = Globality, fill = Country)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(x = "Country",
+       y = "Mean Song Globality",
+       fill = "Country",
+       title = "Top 5 Countries with Highest Mean Song Globality",
+       subtitle = "Globality: Metric that reflects how widely a
+       song is shared across countries' charts") +
+  scale_y_continuous(n.breaks = 8)
+
+plot
+
+```
+
+### Limitations
+
+While the globality metric can be a good start for understanding the data, it suffers from significant limitations. Taking the mean of shares per song by itself tells us nothing about the shape of the distribution of the share count of a given country. Therefore, taking a blanket mean via the globality metric for shares per song leads to critical information loss. We have little insight into *why* these scores are what they are. A country's chart could have a large bundle of songs that are shared with a very large amount of other countries, yet have another bundle that are completely exclusive to the country at hand.
+
+For example, looking at Austria, a country with a high globality score of 12.095, we see:
+
+```{r}
+### HISTOGRAMS FOR N_SHARES PER COUNTRY ###
+
+hist <- Spotify_df2 |>
+  filter(country == "Austria") |>
+  ggplot(aes(x = n_countries)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey") +
+  labs(x = "Shares per Song",
+       y = "Count",
+       title = "Number of Shares per Song for the Top 200 Chart of Austria") +
+  scale_x_continuous(n.breaks = 8)
+
+hist
+```
+
+A strong plurality of songs in Austria's chart are shared with only one other country. What might that other country be? Let's look further:
+
+```{r}
+### Going ahead and converting the data into the wide format used in the modeling stage later 
+
+### Pre-fill cells with 1 from temp column
+
+Spotify_df$exists = 1
+
+### PIVOT WIDE: Fill NA cells with zero ###
+### Columns are countries, rows are songs
+
+spotify_wide <- Spotify_df |>
+  pivot_wider(names_from = country, values_from = exists, id_cols = c(track_name, artist_names))
+
+spotify_wide <- spotify_wide |>
+  mutate(across(everything(), ~ifelse(is.na(.), 0, .)))
+
+```
+
+```{r}
+### Get Austria alone ###
+Austria_wide <- spotify_wide |>
+  filter(Austria == 1)
+
+Austria_shared <- enframe(colSums(Austria_wide[,-(1:2)]), name = "Country", value = "N_Shared_Songs")
+
+Austria_shared <- Austria_shared |> arrange(desc(N_Shared_Songs))
+
+Austria_shared <- Austria_shared[(-1),]
+
+plot <- Austria_shared |>
+  slice_head(n = 5, by =) |>
+  ggplot(aes(x = reorder(Country, -N_Shared_Songs), y = N_Shared_Songs, fill =   reorder(Country, -N_Shared_Songs))) +
+  geom_bar(stat = "identity") +
+  labs(x = "Country",
+       y = "Number of Songs Shared with Austria",
+       fill = "Country",
+       title = "Top 5 Countries with Most Songs in Common with Austria") +
+  scale_y_continuous(n.breaks = 8)
+
+plot
+```
+
+Germany holds a significant lead in number of shared songs with Austria. For context, here is the distribution of the number of shared songs with Austria (bin width of 5):
+
+```{r}
+hist2 <- Austria_shared |>
+  ggplot(aes(x = N_Shared_Songs)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "grey") +
+  labs(x = "Number of Shared Songs with Austria",
+       y = "Count")
+  
+hist2
+```
+
+Given that a large proportion of countries in the data share less than 75 songs with Austria, Germany's total of 139 is remarkable.
+
+Now let's see if Germany is the country that shares the most songs exclusively with Austria:
+
+```{r}
+only_one <- subset(Austria_wide, rowSums(Austria_wide[,-(1:2)]) == 2)
+
+only_one_by_country <- enframe(colSums(only_one[,-(1:2)]), name = "Country", value = "N_Shared_Songs_Exclusive")
+
+only_one_by_country <- only_one_by_country |>
+  arrange(desc(N_Shared_Songs_Exclusive))
+
+only_one_by_country <- only_one_by_country[(-1),]
+
+one_song_table <- datatable(
+  only_one_by_country,
+  rownames = FALSE,
+  class = 'compact stripe',
+  filter = 'top', 
+  options = list(
+    scrollY = '500px',
+    pageLength = 10,
+    dom = 'ftip'      
+  )
+)
+
+one_song_table
+```
+
+As seen above, there are 35 songs in the data that are shared only by Germany and Austria. Here they are:
+
+```{r}
+w_germany <- only_one |>
+  filter(Germany == 1) |>
+  select(track_name, artist_names)
+
+w_germany <- w_germany |>
+  left_join(Spotify_df, by = c("track_name", "artist_names")) |>
+  filter(country == "Austria") |>
+  select(-uri, -country, -track_id, -exists)
+
+w_germany_table <- datatable(
+  w_germany,
+  rownames = FALSE,
+  class = 'compact stripe',
+  filter = 'top', 
+  options = list(
+    scrollY = '500px',
+    pageLength = 35,
+    dom = 'ftip'      
+  )
+)
+
+w_germany_table
+```
+
+Knowing that the two countries share a common language and border, as well as many historical ties, this result makes intuitive sense (notice how the majority of the titles above are in German). Yet how many *less* obvious trends can we uncover in the data? Digging through the data "by hand" in search of these patterns may prove to be a lengthy process. Luckily, unsupervised machine learning methods can help us outline some of the patterns buried within large data sets automatically.
+
+## Why Hierarchical Clustering?
+
+For this data set, the primary way of making sense of songs is keeping track of what countries' top 200 charts they appear in. Therefore, data in a wide format with each row representing a unique song and a column representing the appearance of the song in a given country's chart (denoted as 1 or 0) is most conducive to our analysis.
+
+Firstly, we need a way of measuring the distance between each song. The distance represents how similarly two given songs appear in the charts of specific countries. This can be done using the Jaccard distance, calculated by:
+
+$$d(A, B) = 1 - \frac{\left|A \cap B\right|}{\left|A \cup B\right|}$$ Where A and B represent two different songs conceived as sets of "appearances" in the charts of different countries. The matrix that represents this distance between every combination of points is central to the implementation of the hierarchical clustering algorithm.
+
+### The Process
+
+-   For hierarchical clustering, each data point is initially treated as its own cluster.
+
+-   The algorithm first searches the distance matrix for the smallest distance between 2 points. The two points are then merged into a new, single cluster.
+
+-   The distance matrix is then **updated** to remove the previous two points (and their rows and columns in the matrix) and add the new row and column corresponding to the new cluster. The distances are then recorded between this new cluster and all other remaining clusters (which are still single points at this stage). There are multiple ways to calculate this distance, called *linkage methods.* Some of these include:
+
+    -   **Complete Linkage:** measures the maximum distance between any point in one cluster to any point in another.
+
+    -   **Single Linkage:** similar to above but takes the minimum distance.
+
+    -   **Average Linkage:** Takes the average distance between all pairs of points within two clusters.
+
+    -   **Ward's Linkage:** Determines which clusters merge based on lowest increase in the within-cluster sum of squares (WSS).
+
+-   This process of clusters merging with one another continues until one cluster remains. The merging of clusters is recorded by a **dendrogram,** which is why the process is called "hierarchical" clustering: each level of clustering is organized into a hierarchical structure. Different methods are used to determine the optimal "cutoff" point for the number of clusters, visualized as "cutting" the dendrogram at the appropriate height. A dendrogram looks like this:
+
+    ![An example of a dendrogram. Each branch represents a cluster, and there are different groupings at different levels. The higher the branches merge, the greater difference between the clusters.](images/dendrogram_example.png){fig-align="center" width="500"}
+
+## Procedure
+
+### Linkage Method
+
+For this procedure, we will be selecting the Ward linkage method, which had the highest "cophenetic correlation coefficient" (at .71) out of all the methods. Furthermore, Ward's method tends to produce more even and compact clusters than methods like single linkage.
+
+### Selecting Optimal Number of Clusters (K)
+
+Selecting the appropriate number of clusters is as much an art as it is a science - that is, there is often no one obvious answer. Selecting the appropriate k depends both on cohesive the clusters are mathematically and the interpretability of the project overall. It may very well be the case that an algorithm tells you that 100 clusters is optimal, yet this may be of little help when trying to observe more broad, easily understood categories in the data.
+
+For this analysis, the silhouette method is used to check values of k from 1 to 100. The silhouette method works by taking the mean distance from a point to all other points in its cluster (a), as well as the mean distance from the point to all points in the nearest neighbor cluster (b) and then plugging them into the following formula:
+
+$$
+s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
+$$ Then, the silhouette scores are averaged per different k. A silhouette score close to 1 indicates well-defined, distinctive clusters.
+
+From a random sample of 4000 songs of the data, here is the average silhouette score from k = 1 to k = 100:
+
+```{r}
+plot <- readRDS("data/optimal_k_plot.rds")
+
+plot
+```
+
+Here we can see a curve that spikes high at k = 2, quickly drops down and then builds somewhat logarithmically all the way to 100 (and likely beyond). For the purpose of this analysis, 100 clusters might not be the most useful. At k = 32, we have a fairly high silhoette score while also having broad enough categories to best see general macro trends in the data. Therefore, we will proceed with 32 clusters.
+
+### Exploring the Clusters
+
+Below are all 32 clusters, each with a chart of the top 15 countries that constitute that cluster.
+
+```{r}
+
+## Import finished clusters from Machine Learning Script
+
+hc_wards <- readRDS("data/hc_wards.rds")
+
+## Add to dataset
+
+spotify_wide <- spotify_wide |>
+  mutate(cluster = cutree(hc_wards, k = 32))
+
+```
+
+```{r}
+#| label: cluster-barplot-flipbook
+#| echo: false
+#| results: 'asis'
+#| fig-width: 8
+#| fig-height: 6
+
+
+cluster_profiles <- spotify_wide %>%
+  group_by(cluster) %>%
+  # Summarise across all country columns
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Start the tabset container
+cat('::: {.panel-tabset}\n\n')
+
+# Get the unique cluster numbers to loop through
+unique_clusters <- sort(unique(cluster_profiles$cluster))
+
+# Create small df to get number of songs in each cluster
+  
+songs_by_cluster <- spotify_wide |>
+  group_by(cluster) |>
+  summarize(n_songs = n())
+
+
+for (cluster_id in unique_clusters) {
+  # Create a header for each tab (this is Quarto markdown)
+  cat(paste0('#### Cluster ', cluster_id, '\n\n'))
+  
+  # Prepare the data for this specific cluster's plot
+  plot_data <- cluster_profiles %>%
+    filter(cluster == cluster_id) %>%
+    # Pivot so we have one row per country
+    pivot_longer(
+      cols = -cluster,
+      names_to = "country",
+      values_to = "percentage"
+    ) %>%
+    # Get the top 15 countries
+    slice_max(order_by = percentage, n = 15, with_ties = FALSE)
+  
+  # Create the bar plot for the current cluster
+  p <- ggplot(plot_data, aes(x = percentage, y = reorder(country, percentage), fill = percentage)) +
+    geom_col() +
+    scale_fill_viridis_c() +
+    scale_x_continuous(labels = scales::percent_format()) +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(
+      title = paste("Top 15 Countries for Cluster", cluster_id),
+      subtitle = paste("Number of songs:", as.character(songs_by_cluster[cluster_id, 2])),
+      x = "Percentage of Cluster's Songs on Chart",
+      y = "Country"
+    )
+    
+  print(p)
+  
+  cat('\n\n')
+}
+
+# Close the tabset container
+cat(':::')
+```
+
+And here we can see which songs make up each cluster:
+
+```{r}
+#| label: dropdown-filter-table
+#| echo: false
+
+# Load necessary libraries
+library(DT)
+library(crosstalk)
+library(dplyr)
+
+# Make the cluster column a clear factor for the dropdown menu
+table_data <- spotify_wide %>%
+  mutate(Cluster = paste("Cluster", cluster)) %>%
+  select(Cluster, `Track Name` = track_name, Artist = artist_names)
+
+shared_data <- SharedData$new(table_data)
+
+# Create the dropdown filter menu
+filter_select(
+  id = "cluster_filter", 
+  label = "Select a Cluster to View:", 
+  sharedData = shared_data, 
+  group = ~Cluster
+)
+
+# Create the datatable that is linked to the shared data
+datatable(
+  shared_data,
+  extensions = 'Buttons',
+  options = list(
+    pageLength = 10,
+    dom = 'Bfrtip' 
+  ),
+  rownames = FALSE
+)
+```
+
+As one might predict, much of the clusters are firmly stratified along the lines of language and geography. There are certain clusters (2, 14, 20, 21, 22, 25, 26, 27, 28, 29, 30, 31, 32) that are composed entirely of tracks from one country. These include:
+
+-   Cluster 2 - Vietnam
+
+-   Cluster 14 - Thailand
+
+-   Cluster 20 - Romania
+
+-   Cluster 21 - Poland
+
+-   Cluster 22 - Philippines
+
+-   Cluster 25 - Morocco
+
+-   Cluster 26 - Japan
+
+-   Cluster 27 - Israel
+
+-   Cluster 28 - Iceland
+
+-   Cluster 29 - Finland
+
+-   Cluster 30 - Egypt
+
+-   Cluster 31 - Denmark
+
+-   Cluster 32 - Bulgaria
+
+If we were to select a higher k, it is very likely that we would have even more homogeneous clusters.
+
+## Calculating the Distance Between the Clusters
+
+### Heatmap
+
+We can use a heatmap to explore the distance between the clusters themselves. The distance is calculated using the mean of the Jaccard distances between each of the songs in the two clusters being compared at a time. Having a score of 1.00 between two clusters signify two totally different geographic footprints, while a score of 0 indicates having the exact same footprint (meaning they're identical in the grid).
+
+```{r}
+jaccard_matrix <- readRDS("data/jaccard.rds")
+
+jaccard_matrix <- as.matrix(jaccard_matrix)
+
+# Get the unique cluster IDs
+unique_clusters <- sort(unique(spotify_wide$cluster))
+n_clusters <- length(unique_clusters)
+
+# Create an empty matrix to store the results
+inter_cluster_dist <- matrix(0, nrow = n_clusters, ncol = n_clusters,
+                             dimnames = list(paste("Cluster", unique_clusters), 
+                                             paste("Cluster", unique_clusters)))
+
+# Loop through each pair of clusters
+for (i in 1:n_clusters) {
+  for (j in i:n_clusters) {
+    # Get the row indices for songs in cluster i and cluster j
+    indices_i <- which(spotify_wide$cluster == unique_clusters[i])
+    indices_j <- which(spotify_wide$cluster == unique_clusters[j])
+    
+    # Subset the large Jaccard matrix to get the block of distances between these two clusters
+    distance_subset <- jaccard_matrix[indices_i, indices_j]
+    
+    # Calculate the mean distance and store it
+    mean_dist <- mean(distance_subset)
+    
+    # Store the result in our new matrix (it's symmetric)
+    inter_cluster_dist[i, j] <- mean_dist
+    inter_cluster_dist[j, i] <- mean_dist
+  }
+}
+
+pheatmap(inter_cluster_dist,
+         main = "Average Jaccard Distance Between Clusters",
+         display_numbers = TRUE)
+```
+
+It is interesting to notice how many clusters are completely unique from one another, with a Jaccard distance of 1. Given how many clusters are composed of songs that only appear on one country's chart, this should come as no surprise.
+
+### UMAP Visualization
+
+Another means of visualizing the clusters is through the process of UMAP (uniform manifold approximation and projection), a dimensionality reduction technique that allows for visualization of high-dimensional data while preserving both the local and global structure of the clusters. This can be seen below:
+
+```{r}
+umap_plot_df <- readRDS("data/umap_plot_df.rds")
+
+p <- ggplot(umap_plot_df, aes(x = X, y = Y, color = cluster, text = paste("Song: ", song_id))) +
+  geom_point(alpha = 0.7, size = .4) +
+  theme_minimal() +
+  labs(
+    title = "UMAP Visualization of Song Clusters",
+    x = "UMAP Dimension 1",
+    y = "UMAP Dimension 2",
+    color = "Cluster"
+  )
+
+ggplotly(p, tooltip = "text")
+```
+
+It's important to point out for readers less familiar with this process that the two axes on this chart are mathematically constructed and don't represent a single concrete variable. They can be thought of as a "composite" of many different variables that allow us to better visualize the relationships between the points in the data across a high number of dimensions.
+
+Furthermore, it's important to remember that the distances between the more well-separated clusters are less meaningful than the distances between clusters closer together (such as those in the center-right region of the plot). This is due to the number of clusters that have nothing in common with each other, which means they are all technically the same "distance" from one another (as seen earlier on the heatmap).
+
+## Patterns of Interest
+
+### The Latin Clusters
+
+It is interesting to notice that the model separated Latin songs along noticeable geographic lines. Cluster 6 is the largest cluster, with the most prominent countries being Mexico and Colombia. Cluster 7 is a smaller but still prominent group of songs most popular in Argentina and Uruguay. Cluster 8 is overwhelmingly dominated by Brazil yet Portugal also shares many of its songs.
+
+Cluster 6 seems to be the "flagship" Latin pop cluster, as just about every Latin country in the data shares a sizable percentage of its songs, including Argentina and Uruguay. Yet it is remarkable that the model still separated a large cluster of songs that were almost exclusive to these two South American countries. Culturally, this makes sense - these two countries stand out in Latin America for having a unique rock music scene.
+
+### India and Pakistan (and Canada?)
+
+Another interesting tidbit can be found in Cluster 23, which is representative of music from both India and Pakistan. However, a song called "Courtside" by Punjabi rapper Karan Aujla can be found on the Canada top 200, which is the only South Asian - produced song in the data to be found in a Western country's chart. This makes sense, as South Asians comprise Canada's largest minority group at 7.1%, with many tracing their roots to Punjab.
+
+### Cyprus
+
+Cyprus is the number 2 country in both Cluster 13 and 15, for both Turkey and Greece respectively. This makes sense considering the geopolitical conflict between Turkey and Greece that has left a very significant mark on the island country's history. Modern Cyprus is home to two culturally and linguistically distinct populations, one Greek-speaking and another Turkish-speaking.
+
+## Conclusion
+
+The hierarchical clustering approach proved largely successful in outlining specific "ecosystems" within the top 200 Spotify charts of the 73 countries analyzed. The number of clusters one chooses provides specific insights; choosing a high k can outline small clusters highly specific to the region while choosing a lower k can provide a more zoomed-out view of where the songs fit in a larger global context. The choice of k = 32 with Ward's linkage method created more consistent, evenly-sized clustered that captured both broad regional clusters and more isolated, regionally-specific clusters.
+
+### Next Steps
+
+-   Qualitative Analysis: Can a similar analysis be performed if we were given access to song *feature* data? Spotify once offered this data to the public but has since revoked access for privacy reasons. Might more interesting trends be discovered if we could cross-reference these findings with that data?
+
+-   Scaling up: This dataset only contained 7399 songs from each countries top 200 data sets, without regard to the songs particular positions on the charts. Further analysis might include simply increasing the number of songs per country or an attempt to weigh chart ranking/number of streams in measuring similarity.
+
+-   Measuring Across Time: How have these patterns shifted over time? Can we notice a change in the "shape" of these clusters if one were to track these weekly charts over the span of years?
+
+There remains a lot more to learn from analyzing the Spotify chart data than just using the methods described here. It's likely something that I will revisit in the future.
+
+![Happy Listening!](images/headphones_woman.jpg){fig-align="center"}

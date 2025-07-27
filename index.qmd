@@ -1,0 +1,8 @@
+---
+title: "Wes Null's Data Blog"
+---
+
+## Welcome 
+
+This is the page where you can find some personal data science oriented projects of mine. Some of these are focused on analyzing specific datasets, while others are more akin to learning exercises with an educational focus. Enjoy!
+

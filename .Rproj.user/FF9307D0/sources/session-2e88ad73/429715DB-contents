@@ -1,0 +1,131 @@
+### MACHINE LEARNING SECTION
+
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(readr)
+library(pheatmap)
+
+### MACHINE LEARNING SCRIPT ###
+### ITERATIVE CLUSTERING ###
+
+Spotify_df <- read_csv("C:/Users/dis90/Downloads/Spotify_Top_Songs_Global_May_29_2025 (2).csv")
+
+Spotify_df$exists = 1
+
+### PIVOT WIDE ###
+
+spotify_wide <- Spotify_df |>
+  pivot_wider(names_from = country, values_from = exists, id_cols = c(track_name, artist_names))
+
+spotify_wide <- spotify_wide %>%
+  mutate(across(everything(), ~ifelse(is.na(.), 0, .)))
+
+### ROUND ONE CLUSTERING ###
+
+### Sample first
+
+sample <- 4000
+
+round_one_sample <- spotify_wide |>
+  sample_n(sample)
+
+### SAMPLE MATRIX
+
+jaccard_mat <- dist(round_one_sample[,3:ncol(round_one_sample)], method = "binary")
+### WHOLE MATRIX
+
+jaccard_whole <- dist(spotify_wide[,3:ncol(spotify_wide)], method = "binary")
+
+# Complete Linkage
+corr_complete <- cor(jaccard_whole, cophenetic(hc_complete))
+
+# Ward's Method
+corr_ward <- cor(jaccard_whole, cophenetic(hc_wards))
+
+corr_complete
+corr_ward
+
+hc_wards_sample <- agnes(jaccard_mat, method = "ward")
+
+# This one line of code runs the silhouette analysis
+round_one_cut<- fviz_nbclust(
+  x = as.matrix(jaccard_mat),
+  FUNcluster = function(x, k) { list(cluster = cutree(hc_wards_sample, k = k)) },
+  method = "silhouette",
+  k.max = 100  # You can adjust the max number of clusters to test
+) +
+  labs(title = "Optimal Number of Clusters (Silhouette Method)")
+
+optimal_k_plot <- round_one_cut + scale_x_discrete(breaks = seq(0, 100, by = 5))
+
+saveRDS(optimal_k_plot, "optimal_k_plot.rds")
+
+ggsave("Optimal_k_wards.png")
+
+## k = 80
+
+jaccard_whole <- dist(spotify_wide[,3:ncol(spotify_wide)], method = "binary")
+
+hc_wards <- agnes(jaccard_whole, method = "ward")
+
+saveRDS(hc_wards, file = "hc_wards.rds")
+
+spotify_wide <- spotify_wide |>
+  mutate(cluster = cutree(hc_wards, k = 32))
+
+freq_breakdown <- spotify_wide |>
+  group_by(cluster) |>
+  summarize(count = n())
+
+cluster_76 <- spotify_wide |>
+  filter(cluster == 76) |> select(-cluster, -track_name, -artist_names)
+
+colSums(cluster_76)
+
+### CHILE EXCLUSIVE ###
+
+### PCA ###
+
+pca_result <- prcomp(jaccard_whole, center = TRUE, scale. = TRUE)
+
+ward_one <- ward_cluster_round_one |>
+  filter(cluster == 1)
+
+ward_two <- ward_cluster_round_one |>
+  filter(cluster == 2)
+
+ward_one_pct <- colSums(ward_one[, -(1:2)]) / nrow(ward_one)
+ward_one_pct
+
+tail(sort(ward_one_pct), 10)
+
+ward_two_pct <- colSums(ward_two[, -(1:2)]) / nrow(ward_two)
+ward_two_pct
+
+tail(sort(ward_two_pct), 10)
+
+## CUT WARD CLUSTER 1
+
+ward_one_sample <- ward_one |> sample_n(sample) |> select(-cluster)
+
+jaccard_cluster1_sample <- dist(ward_one_sample[,3:ncol(ward_one_sample)])
+
+hc_wards_clusters1_sample <- agnes(jaccard_cluster1_sample, method = "ward")
+
+cluster1_cut<- fviz_nbclust(
+  x = as.matrix(jaccard_cluster1_sample),
+  FUNcluster = function(x, k) { list(cluster = cutree(hc_wards_clusters1_sample, k = k)) },
+  method = "silhouette",
+  k.max = 120  # You can adjust the max number of clusters to test
+) +
+  labs(title = "Optimal Number of Clusters (Silhouette Method)") +
+  scale_x_continuous(n.breaks = )
+
+cluster1_cut
+
+### k = 100 ##
+
+jaccard_cluster1 <- dist(ward_one[,3:ncol(ward_one)], method = "binary")
+
+hc_wards_cluster1 <- agnes()
